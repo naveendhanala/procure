@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { getSession, unauthorized, forbidden, badRequest, success } from "@/lib/api-utils";
+import { getSession, unauthorized, forbidden, success } from "@/lib/api-utils";
 import { hasAnyRole } from "@/lib/permissions";
 
 export async function POST(

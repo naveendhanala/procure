@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useCurrentUser } from "@/hooks/use-current-user";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +9,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { formatDate } from "@/lib/utils";
 
 export default function ApprovalsPage() {
-  const { siteRoles } = useCurrentUser();
   const [indents, setIndents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

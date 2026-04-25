@@ -22,6 +22,7 @@ export default function InventoryPage() {
 
   useEffect(() => {
     if (uniqueSites.length === 1) setSiteId(uniqueSites[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

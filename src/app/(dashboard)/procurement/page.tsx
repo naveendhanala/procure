@@ -19,7 +19,6 @@ export default function ProcurementPage() {
   const { siteRoles } = useCurrentUser();
   const [indents, setIndents] = useState<any[]>([]);
   const [ptmUsers, setPtmUsers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [assignDialog, setAssignDialog] = useState<any>(null);
   const [selectedPTM, setSelectedPTM] = useState("");
   const [assigning, setAssigning] = useState(false);
@@ -30,7 +29,6 @@ export default function ProcurementPage() {
     fetch("/api/indents")
       .then((r) => r.json())
       .then(setIndents)
-      .finally(() => setLoading(false));
 
     if (isHoP) {
       fetch("/api/users")

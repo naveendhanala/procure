@@ -70,6 +70,7 @@ export default function NewPOPage() {
           }
         });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [indentId]);
 
   function updateItem(index: number, field: string, value: string) {
@@ -162,6 +163,10 @@ export default function NewPOPage() {
             <div className="space-y-2">
               <Label>Terms & Conditions</Label>
               <Textarea value={terms} onChange={(e) => setTerms(e.target.value)} placeholder="Payment terms, delivery terms, etc." />
+            </div>
+            <div className="space-y-2">
+              <Label>Remarks</Label>
+              <Textarea value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Additional notes..." />
             </div>
           </CardContent>
         </Card>

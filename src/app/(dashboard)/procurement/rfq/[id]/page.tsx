@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { formatDate } from "@/lib/utils";
 
@@ -24,6 +23,7 @@ export default function RFQDetailPage() {
 
   useEffect(() => {
     fetchRFQ();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   async function fetchRFQ() {
@@ -182,7 +182,7 @@ export default function RFQDetailPage() {
                   return (
                     <TableRow key={item.id}>
                       <TableCell>{item.material.name}</TableCell>
-                      {rfq.quotes.map((q: any, idx: number) => {
+                      {rfq.quotes.map((q: any) => {
                         const qi = q.items.find((qi: any) => qi.materialId === item.materialId);
                         const price = qi ? Number(qi.unitPrice) : null;
                         const isLowest = price === minPrice;

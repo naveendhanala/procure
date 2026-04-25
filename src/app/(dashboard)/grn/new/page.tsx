@@ -28,6 +28,7 @@ export default function NewGRNPage() {
 
   useEffect(() => {
     if (smSites.length === 1) setSiteId(smSites[0].siteId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

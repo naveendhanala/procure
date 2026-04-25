@@ -10,13 +10,10 @@ import { Plus } from "lucide-react";
 
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     fetch("/api/vendors")
       .then((res) => res.json())
-      .then(setVendors)
-      .finally(() => setLoading(false));
+      .then(setVendors);
   }, []);
 
   return (

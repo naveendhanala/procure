@@ -10,13 +10,10 @@ import { formatDate } from "@/lib/utils";
 
 export default function PurchaseOrdersPage() {
   const [pos, setPOs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     fetch("/api/purchase-orders")
       .then((r) => r.json())
-      .then(setPOs)
-      .finally(() => setLoading(false));
+      .then(setPOs);
   }, []);
 
   return (

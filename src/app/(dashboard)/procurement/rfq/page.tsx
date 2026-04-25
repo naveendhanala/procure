@@ -10,13 +10,10 @@ import { formatDate } from "@/lib/utils";
 
 export default function RFQListPage() {
   const [rfqs, setRfqs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     fetch("/api/rfq")
       .then((r) => r.json())
-      .then(setRfqs)
-      .finally(() => setLoading(false));
+      .then(setRfqs);
   }, []);
 
   return (
