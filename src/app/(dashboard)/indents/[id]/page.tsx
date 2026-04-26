@@ -77,12 +77,7 @@ export default function IndentDetailPage() {
 
   const isCreator = user?.id === indent.createdById;
   const isDraft = indent.status === "DRAFT";
-  const isPendingApproval = indent.status === "PENDING_APPROVAL" || indent.status === "PARTIALLY_APPROVED";
-
-  const canApprove = isPendingApproval && siteRoles.some((sr) => {
-    if (sr.siteId !== indent.siteId) return false;
-    return sr.role === "CLUSTER_HEAD" || sr.role === "VICE_PRESIDENT";
-  });
+  const canApprove = indent.canApprove === true;
 
   return (
     <div className="space-y-6">
@@ -130,7 +125,7 @@ export default function IndentDetailPage() {
                     <TableHead className="text-right">Received</TableHead>
                     <TableHead className="text-right">In Transit</TableHead>
                     <TableHead className="text-right">With Procurement</TableHead>
-                    <TableHead className="text-right">Later Indents</TableHead>
+                    <TableHead className="text-right">Other Pending Indents</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -207,9 +202,9 @@ export default function IndentDetailPage() {
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="flex items-center gap-1 cursor-help text-purple-600">Later Indents</span>
+                      <span className="flex items-center gap-1 cursor-help text-purple-600">Other Pending Indents</span>
                     </TooltipTrigger>
-                    <TooltipContent>Quantity indented in indents raised after this one (pending or in progress)</TooltipContent>
+                    <TooltipContent>Quantity in other active indents for this material at this site (pending approval, with procurement, or PO created)</TooltipContent>
                   </Tooltip>
                 </div>
               </TooltipProvider>

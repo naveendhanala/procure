@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { getSession, unauthorized, notFound, success, badRequest } from "@/lib/api-utils";
 import { isProcurementRole, getDisplayStatus } from "@/lib/permissions";
+import { canUserApprove } from "@/lib/workflow-engine";
 
 export async function GET(
   _request: Request,
@@ -119,17 +120,15 @@ export async function GET(
       .filter((ii) => withProcurementStatuses.includes(ii.indent.status))
       .reduce((s, ii) => s + Number(ii.quantity), 0);
 
+    const otherPendingStatuses = [
+      ...pendingStatuses,
+      ...withProcurementStatuses,
+      "PO_CREATED",
+    ];
     const pendingInOtherIndents = matIndentItems
       .filter((ii) => {
         if (ii.indent.id === indent.id) return false;
-        if (ii.indent.createdAt > indent.createdAt) {
-          return (
-            pendingStatuses.includes(ii.indent.status) ||
-            withProcurementStatuses.includes(ii.indent.status) ||
-            ii.indent.status === "PO_CREATED"
-          );
-        }
-        return false;
+        return otherPendingStatuses.includes(ii.indent.status);
       })
       .reduce((s, ii) => s + Number(ii.quantity), 0);
 
@@ -142,10 +141,13 @@ export async function GET(
     };
   }
 
+  const userCanApprove = await canUserApprove(session.user.id, indent.id);
+
   return success({
     ...indent,
     currentInventory,
     materialStats,
+    canApprove: userCanApprove,
     displayStatus: getDisplayStatus(indent.status, isProcurement),
   });
 }

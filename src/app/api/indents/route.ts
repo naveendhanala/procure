@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get("status");
   const siteId = request.nextUrl.searchParams.get("siteId");
 
+  const pendingMyApproval = request.nextUrl.searchParams.get("pendingMyApproval") === "true";
+
   const where: Record<string, unknown> = {};
 
   if (status) where.status = status;
@@ -20,18 +22,38 @@ export async function GET(request: NextRequest) {
 
   const roles = Array.from(new Set(siteRoles.map((sr) => sr.role)));
 
-  if (roles.includes("PROJECT_MANAGER") && !isProcurement && !roles.includes("SUPER_ADMIN")) {
-    const mySiteIds = siteRoles
-      .filter((sr) => sr.role === "PROJECT_MANAGER")
-      .map((sr) => sr.siteId);
-    where.OR = [
-      { createdById: session.user.id },
-      { siteId: { in: mySiteIds } },
-    ];
-  }
+  if (pendingMyApproval) {
+    const approverRoles = siteRoles.filter(
+      (sr) => sr.role === "CLUSTER_HEAD" || sr.role === "VICE_PRESIDENT"
+    );
+    if (approverRoles.length === 0) return success([]);
 
-  if (roles.includes("PROCUREMENT_TEAM_MEMBER") && !roles.includes("HEAD_OF_PROCUREMENT")) {
-    where.assignedToId = session.user.id;
+    const workflowSteps = await prisma.approvalWorkflowStep.findMany({
+      where: {
+        OR: approverRoles.map((sr) => ({ siteId: sr.siteId, role: sr.role })),
+      },
+    });
+    if (workflowSteps.length === 0) return success([]);
+
+    where.status = { in: ["PENDING_APPROVAL", "PARTIALLY_APPROVED"] };
+    where.OR = workflowSteps.map((ws) => ({
+      siteId: ws.siteId,
+      currentApprovalStep: ws.stepOrder,
+    }));
+  } else {
+    if (roles.includes("PROJECT_MANAGER") && !isProcurement && !roles.includes("SUPER_ADMIN")) {
+      const mySiteIds = siteRoles
+        .filter((sr) => sr.role === "PROJECT_MANAGER")
+        .map((sr) => sr.siteId);
+      where.OR = [
+        { createdById: session.user.id },
+        { siteId: { in: mySiteIds } },
+      ];
+    }
+
+    if (roles.includes("PROCUREMENT_TEAM_MEMBER") && !roles.includes("HEAD_OF_PROCUREMENT")) {
+      where.assignedToId = session.user.id;
+    }
   }
 
   const indents = await prisma.materialIndent.findMany({

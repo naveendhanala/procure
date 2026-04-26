@@ -98,31 +98,18 @@ export async function GET(request: NextRequest) {
       .filter((ii) => withProcurementStatuses.includes(ii.indent.status))
       .reduce((sum, ii) => sum + Number(ii.quantity), 0);
 
-    let pendingInOtherIndents = 0;
-    if (excludeIndentId) {
-      const currentIndent = matIndentItems.find(
-        (ii) => ii.indent.id === excludeIndentId
-      );
-      const currentCreatedAt = currentIndent?.indent.createdAt;
-      const pendingStatuses = [
-        "PENDING_APPROVAL",
-        "PARTIALLY_APPROVED",
-      ];
-
-      pendingInOtherIndents = matIndentItems
-        .filter((ii) => {
-          if (ii.indent.id === excludeIndentId) return false;
-          if (currentCreatedAt && ii.indent.createdAt > currentCreatedAt) {
-            return (
-              pendingStatuses.includes(ii.indent.status) ||
-              withProcurementStatuses.includes(ii.indent.status) ||
-              ii.indent.status === "PO_CREATED"
-            );
-          }
-          return false;
-        })
-        .reduce((sum, ii) => sum + Number(ii.quantity), 0);
-    }
+    const otherPendingStatuses = [
+      "PENDING_APPROVAL",
+      "PARTIALLY_APPROVED",
+      ...withProcurementStatuses,
+      "PO_CREATED",
+    ];
+    const pendingInOtherIndents = matIndentItems
+      .filter((ii) => {
+        if (excludeIndentId && ii.indent.id === excludeIndentId) return false;
+        return otherPendingStatuses.includes(ii.indent.status);
+      })
+      .reduce((sum, ii) => sum + Number(ii.quantity), 0);
 
     stats[matId] = {
       totalIndented,

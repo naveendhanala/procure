@@ -13,14 +13,9 @@ export default function ApprovalsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/indents")
+    fetch("/api/indents?pendingMyApproval=true")
       .then((r) => r.json())
-      .then((data) => {
-        const pending = data.filter(
-          (i: any) => i.status === "PENDING_APPROVAL" || i.status === "PARTIALLY_APPROVED"
-        );
-        setIndents(pending);
-      })
+      .then(setIndents)
       .finally(() => setLoading(false));
   }, []);
 
