@@ -83,6 +83,7 @@ export default function LoginPage() {
           </form>
         </CardContent>
       </Card>
+      <p className="mt-4 text-xs text-muted-foreground">v1.1.0</p>
     </div>
   );
 }

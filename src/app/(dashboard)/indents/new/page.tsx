@@ -20,6 +20,14 @@ interface Material {
   category: string;
 }
 
+interface MaterialStats {
+  totalIndented: number;
+  totalReceived: number;
+  inTransit: number;
+  withProcurement: number;
+  pendingInOtherIndents: number;
+}
+
 interface IndentItem {
   materialId: string;
   material?: Material;
@@ -27,6 +35,7 @@ interface IndentItem {
   unit: string;
   remarks: string;
   currentStock: number | null;
+  stats: MaterialStats | null;
 }
 
 export default function NewIndentPage() {
@@ -49,7 +58,7 @@ export default function NewIndentPage() {
   }, []);
 
   function addItem() {
-    setItems([...items, { materialId: "", quantity: "", unit: "", remarks: "", currentStock: null }]);
+    setItems([...items, { materialId: "", quantity: "", unit: "", remarks: "", currentStock: null, stats: null }]);
   }
 
   function removeItem(index: number) {
@@ -63,11 +72,17 @@ export default function NewIndentPage() {
     updated[index].material = mat;
     updated[index].unit = mat?.unit || "";
     updated[index].currentStock = null;
+    updated[index].stats = null;
 
     if (siteId && materialId) {
-      const res = await fetch(`/api/inventory?siteId=${siteId}&materialId=${materialId}`);
-      const inv = await res.json();
+      const [invRes, statsRes] = await Promise.all([
+        fetch(`/api/inventory?siteId=${siteId}&materialId=${materialId}`),
+        fetch(`/api/material-stats?siteId=${siteId}&materialIds=${materialId}`),
+      ]);
+      const inv = await invRes.json();
+      const statsData = await statsRes.json();
       updated[index].currentStock = inv.length > 0 ? Number(inv[0].quantity) : 0;
+      updated[index].stats = statsData[materialId] ?? null;
     }
 
     setItems([...updated]);
@@ -203,14 +218,43 @@ export default function NewIndentPage() {
                 </div>
 
                 {item.currentStock !== null && (
-                  <div className="flex items-center gap-2 pl-1">
-                    <Package className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      Current Stock at Site:{" "}
-                      <span className={`font-medium ${item.currentStock > 0 ? "text-green-600" : "text-orange-600"}`}>
-                        {item.currentStock} {item.unit}
-                      </span>
-                    </span>
+                  <div className="rounded-md bg-muted/50 p-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Material Status at Site</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-x-6 gap-y-1 text-sm pl-6">
+                      <div>
+                        Current Stock:{" "}
+                        <span className={`font-medium ${item.currentStock > 0 ? "text-green-600" : "text-orange-600"}`}>
+                          {item.currentStock} {item.unit}
+                        </span>
+                      </div>
+                      {item.stats && (
+                        <>
+                          <div>
+                            Total Indented:{" "}
+                            <span className="font-medium">{item.stats.totalIndented} {item.unit}</span>
+                          </div>
+                          <div>
+                            Total Received:{" "}
+                            <span className="font-medium text-green-600">{item.stats.totalReceived} {item.unit}</span>
+                          </div>
+                          <div>
+                            In Transit (PO Raised):{" "}
+                            <span className="font-medium text-blue-600">{item.stats.inTransit} {item.unit}</span>
+                          </div>
+                          <div>
+                            With Procurement:{" "}
+                            <span className="font-medium text-amber-600">{item.stats.withProcurement} {item.unit}</span>
+                          </div>
+                          <div>
+                            In Other Pending Indents:{" "}
+                            <span className="font-medium text-purple-600">{item.stats.pendingInOtherIndents} {item.unit}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
 

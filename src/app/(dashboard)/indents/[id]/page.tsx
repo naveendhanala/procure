@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { CheckCircle, XCircle, Send, Package } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { CheckCircle, XCircle, Send, Package, Info } from "lucide-react";
 
 function formatRole(role: string): string {
   return role.split("_").map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(" ");
@@ -121,39 +122,97 @@ export default function IndentDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Material</TableHead>
-                    <TableHead>Quantity</TableHead>
+                    <TableHead className="text-right">Requested</TableHead>
                     <TableHead>Unit</TableHead>
-                    <TableHead>Stock at Creation</TableHead>
-                    <TableHead>Current Stock</TableHead>
+                    <TableHead className="text-right">Stock at Creation</TableHead>
+                    <TableHead className="text-right">Current Stock</TableHead>
+                    <TableHead className="text-right">Total Indented</TableHead>
+                    <TableHead className="text-right">Received</TableHead>
+                    <TableHead className="text-right">In Transit</TableHead>
+                    <TableHead className="text-right">With Procurement</TableHead>
+                    <TableHead className="text-right">Later Indents</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {indent.items.map((item: any) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="font-medium">{item.material.name}</div>
-                        <div className="text-xs text-muted-foreground">{item.material.code}</div>
-                      </TableCell>
-                      <TableCell className="font-medium">{Number(item.quantity)}</TableCell>
-                      <TableCell>{item.unit}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Package className="h-3 w-3 text-muted-foreground" />
-                          {Number(item.stockAtCreation)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Package className="h-3 w-3 text-muted-foreground" />
-                          <span className={indent.currentInventory[item.materialId] > 0 ? "text-green-600" : "text-orange-600"}>
-                            {indent.currentInventory[item.materialId] ?? 0}
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {indent.items.map((item: any) => {
+                    const stats = indent.materialStats?.[item.materialId];
+                    return (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div className="font-medium">{item.material.name}</div>
+                          <div className="text-xs text-muted-foreground">{item.material.code}</div>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">{Number(item.quantity)}</TableCell>
+                        <TableCell>{item.unit}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Package className="h-3 w-3 text-muted-foreground" />
+                            {Number(item.stockAtCreation)}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <Package className="h-3 w-3 text-muted-foreground" />
+                            <span className={indent.currentInventory[item.materialId] > 0 ? "text-green-600" : "text-orange-600"}>
+                              {indent.currentInventory[item.materialId] ?? 0}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">{stats?.totalIndented ?? "-"}</TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-green-600">{stats?.totalReceived ?? "-"}</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-blue-600">{stats?.inTransit ?? "-"}</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-amber-600">{stats?.withProcurement ?? "-"}</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="text-purple-600">{stats?.pendingInOtherIndents ?? "-"}</span>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
+
+              <TooltipProvider>
+                <div className="mt-4 flex flex-wrap gap-4 text-xs text-muted-foreground border-t pt-3">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1 cursor-help">
+                        <Info className="h-3 w-3" /> Total Indented
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>Total quantity indented for this material at this site (all time, excluding draft/rejected/cancelled)</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1 cursor-help text-green-600">Received</span>
+                    </TooltipTrigger>
+                    <TooltipContent>Total quantity received via confirmed GRNs at this site</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1 cursor-help text-blue-600">In Transit</span>
+                    </TooltipTrigger>
+                    <TooltipContent>Quantity in POs that are issued but not yet fully received (material is on the way)</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1 cursor-help text-amber-600">With Procurement</span>
+                    </TooltipTrigger>
+                    <TooltipContent>Quantity in approved indents being processed by procurement (approved/assigned/RFQ stage, no PO yet)</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center gap-1 cursor-help text-purple-600">Later Indents</span>
+                    </TooltipTrigger>
+                    <TooltipContent>Quantity indented in indents raised after this one (pending or in progress)</TooltipContent>
+                  </Tooltip>
+                </div>
+              </TooltipProvider>
             </CardContent>
           </Card>
 

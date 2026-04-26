@@ -55,22 +55,97 @@ export async function GET(
 
   if (!indent) return notFound("Indent");
 
-  const currentInventory: Record<string, number> = {};
-  for (const item of indent.items) {
-    const inv = await prisma.inventory.findUnique({
+  const matIds = indent.items.map((item) => item.materialId);
+
+  const [inventoryRecords, indentItems, poItems, grnItems] = await Promise.all([
+    prisma.inventory.findMany({
+      where: { siteId: indent.siteId, materialId: { in: matIds } },
+    }),
+    prisma.indentItem.findMany({
       where: {
-        siteId_materialId: {
+        materialId: { in: matIds },
+        indent: {
           siteId: indent.siteId,
-          materialId: item.materialId,
+          status: { notIn: ["DRAFT", "REJECTED", "CANCELLED"] },
         },
       },
-    });
-    currentInventory[item.materialId] = inv ? Number(inv.quantity) : 0;
+      include: {
+        indent: { select: { id: true, status: true, createdAt: true } },
+      },
+    }),
+    prisma.pOItem.findMany({
+      where: {
+        materialId: { in: matIds },
+        po: {
+          indent: { siteId: indent.siteId },
+          status: { in: ["DRAFT", "ISSUED", "PARTIALLY_RECEIVED"] },
+        },
+      },
+    }),
+    prisma.gRNItem.findMany({
+      where: {
+        materialId: { in: matIds },
+        grn: { siteId: indent.siteId, status: "CONFIRMED" },
+      },
+    }),
+  ]);
+
+  const invMap = new Map(
+    inventoryRecords.map((inv) => [inv.materialId, Number(inv.quantity)])
+  );
+  const currentInventory: Record<string, number> = {};
+  const materialStats: Record<string, {
+    totalIndented: number;
+    totalReceived: number;
+    inTransit: number;
+    withProcurement: number;
+    pendingInOtherIndents: number;
+  }> = {};
+
+  const withProcurementStatuses = ["APPROVED", "ASSIGNED", "RFQ_SENT", "QUOTES_RECEIVED"];
+  const pendingStatuses = ["PENDING_APPROVAL", "PARTIALLY_APPROVED"];
+
+  for (const matId of matIds) {
+    currentInventory[matId] = invMap.get(matId) ?? 0;
+
+    const matIndentItems = indentItems.filter((ii) => ii.materialId === matId);
+    const matPoItems = poItems.filter((pi) => pi.materialId === matId);
+    const matGrnItems = grnItems.filter((gi) => gi.materialId === matId);
+
+    const totalIndented = matIndentItems.reduce((s, ii) => s + Number(ii.quantity), 0);
+    const totalReceived = matGrnItems.reduce((s, gi) => s + Number(gi.acceptedQuantity), 0);
+    const inTransit = matPoItems.reduce((s, pi) => s + Number(pi.quantity), 0);
+    const withProcurement = matIndentItems
+      .filter((ii) => withProcurementStatuses.includes(ii.indent.status))
+      .reduce((s, ii) => s + Number(ii.quantity), 0);
+
+    const pendingInOtherIndents = matIndentItems
+      .filter((ii) => {
+        if (ii.indent.id === indent.id) return false;
+        if (ii.indent.createdAt > indent.createdAt) {
+          return (
+            pendingStatuses.includes(ii.indent.status) ||
+            withProcurementStatuses.includes(ii.indent.status) ||
+            ii.indent.status === "PO_CREATED"
+          );
+        }
+        return false;
+      })
+      .reduce((s, ii) => s + Number(ii.quantity), 0);
+
+    materialStats[matId] = {
+      totalIndented,
+      totalReceived,
+      inTransit,
+      withProcurement,
+      pendingInOtherIndents,
+    };
   }
 
   return success({
     ...indent,
     currentInventory,
+    materialStats,
     displayStatus: getDisplayStatus(indent.status, isProcurement),
   });
 }
