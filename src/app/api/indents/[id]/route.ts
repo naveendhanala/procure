@@ -143,11 +143,31 @@ export async function GET(
 
   const userCanApprove = await canUserApprove(session.user.id, indent.id);
 
+  let pendingWith: { name: string; email: string; phone: string | null; role: string } | null = null;
+  if (indent.status === "PENDING_APPROVAL" || indent.status === "PARTIALLY_APPROVED") {
+    const currentStep = await prisma.approvalWorkflowStep.findFirst({
+      where: { siteId: indent.siteId, stepOrder: indent.currentApprovalStep },
+    });
+    if (currentStep) {
+      const approverAssignment = await prisma.userSiteAssignment.findFirst({
+        where: { siteId: indent.siteId, role: currentStep.role },
+        include: { user: { select: { name: true, email: true, phone: true } } },
+      });
+      if (approverAssignment) {
+        pendingWith = {
+          ...approverAssignment.user,
+          role: currentStep.role,
+        };
+      }
+    }
+  }
+
   return success({
     ...indent,
     currentInventory,
     materialStats,
     canApprove: userCanApprove,
+    pendingWith,
     displayStatus: getDisplayStatus(indent.status, isProcurement),
   });
 }

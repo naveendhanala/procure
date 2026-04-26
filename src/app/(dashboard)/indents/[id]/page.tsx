@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle, XCircle, Send, Package, Info } from "lucide-react";
+import { CheckCircle, XCircle, Send, Package, Info, Clock, Mail, Phone } from "lucide-react";
 
 function formatRole(role: string): string {
   return role.split("_").map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(" ");
@@ -230,6 +230,35 @@ export default function IndentDetailPage() {
         </div>
 
         <div className="space-y-6">
+          {indent.pendingWith && (
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Clock className="h-4 w-4 text-amber-600" />
+                  Pending With
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <div className="font-medium">{indent.pendingWith.name}</div>
+                <div className="text-muted-foreground">{formatRole(indent.pendingWith.role)}</div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Mail className="h-3 w-3" />
+                  <a href={`mailto:${indent.pendingWith.email}`} className="text-primary hover:underline">
+                    {indent.pendingWith.email}
+                  </a>
+                </div>
+                {indent.pendingWith.phone && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Phone className="h-3 w-3" />
+                    <a href={`tel:${indent.pendingWith.phone}`} className="text-primary hover:underline">
+                      {indent.pendingWith.phone}
+                    </a>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {isDraft && isCreator && (
             <Card>
               <CardHeader><CardTitle>Actions</CardTitle></CardHeader>

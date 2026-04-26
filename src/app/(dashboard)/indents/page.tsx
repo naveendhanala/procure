@@ -66,6 +66,7 @@ export default function IndentsPage() {
               <TableHead>Priority</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Pending With</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -86,10 +87,20 @@ export default function IndentsPage() {
                 </TableCell>
                 <TableCell className="text-sm">{formatDate(indent.createdAt)}</TableCell>
                 <TableCell><StatusBadge status={indent.status} displayLabel={indent.displayStatus} /></TableCell>
+                <TableCell>
+                  {indent.pendingWith ? (
+                    <div className="text-sm">
+                      <div className="font-medium">{indent.pendingWith.name}</div>
+                      <div className="text-xs text-muted-foreground">{indent.pendingWith.role.split("_").map((w: string) => w.charAt(0) + w.slice(1).toLowerCase()).join(" ")}</div>
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
               </TableRow>
             ))}
             {indents.length === 0 && (
-              <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No indents found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">No indents found</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

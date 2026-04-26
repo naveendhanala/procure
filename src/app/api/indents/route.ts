@@ -72,8 +72,54 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
+  const pendingIndents = indents.filter(
+    (i) => i.status === "PENDING_APPROVAL" || i.status === "PARTIALLY_APPROVED"
+  );
+
+  const pendingWithMap: Record<string, { name: string; role: string }> = {};
+  if (pendingIndents.length > 0) {
+    const stepQueries = pendingIndents.map((i) => ({
+      siteId: i.siteId,
+      stepOrder: i.currentApprovalStep,
+    }));
+    const steps = await prisma.approvalWorkflowStep.findMany({
+      where: { OR: stepQueries },
+    });
+    const stepMap = new Map(steps.map((s) => [`${s.siteId}_${s.stepOrder}`, s.role]));
+
+    const neededLookups = new Map<string, string>();
+    for (const ind of pendingIndents) {
+      const role = stepMap.get(`${ind.siteId}_${ind.currentApprovalStep}`);
+      if (role) neededLookups.set(`${ind.siteId}_${role}`, role);
+    }
+
+    const assignments = await prisma.userSiteAssignment.findMany({
+      where: {
+        OR: Array.from(neededLookups.entries()).map(([key]) => {
+          const [sId, ...roleParts] = key.split("_");
+          return { siteId: sId, role: roleParts.join("_") as any };
+        }),
+      },
+      include: { user: { select: { name: true } } },
+    });
+    const assignmentMap = new Map(
+      assignments.map((a) => [`${a.siteId}_${a.role}`, a.user.name])
+    );
+
+    for (const ind of pendingIndents) {
+      const role = stepMap.get(`${ind.siteId}_${ind.currentApprovalStep}`);
+      if (role) {
+        const name = assignmentMap.get(`${ind.siteId}_${role}`);
+        if (name) {
+          pendingWithMap[ind.id] = { name, role };
+        }
+      }
+    }
+  }
+
   const result = indents.map((indent) => ({
     ...indent,
+    pendingWith: pendingWithMap[indent.id] ?? null,
     displayStatus: getDisplayStatus(indent.status, isProcurement),
   }));
 
