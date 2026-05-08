@@ -25,7 +25,11 @@ export async function PATCH(
   const session = await getSession();
   if (!session) return unauthorized();
   if (
-    !hasAnyRole(session.user.siteRoles, ["SUPER_ADMIN", "HEAD_OF_PROCUREMENT"])
+    !hasAnyRole(session.user.siteRoles, [
+      "SUPER_ADMIN",
+      "HEAD_OF_PROCUREMENT",
+      "PROCUREMENT_TEAM_MEMBER",
+    ])
   ) {
     return forbidden();
   }

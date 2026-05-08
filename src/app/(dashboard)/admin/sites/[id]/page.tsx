@@ -10,8 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Trash2, Save } from "lucide-react";
 
 const APPROVAL_ROLES = [
+  { value: "PROJECT_MANAGER", label: "Project Manager" },
   { value: "CLUSTER_HEAD", label: "Cluster Head" },
   { value: "VICE_PRESIDENT", label: "Vice President" },
+  { value: "HEAD_OF_STORES", label: "Head of Stores" },
 ];
 
 function formatRole(role: string): string {

@@ -24,7 +24,11 @@ export async function GET(request: NextRequest) {
 
   if (pendingMyApproval) {
     const approverRoles = siteRoles.filter(
-      (sr) => sr.role === "CLUSTER_HEAD" || sr.role === "VICE_PRESIDENT"
+      (sr) =>
+        sr.role === "PROJECT_MANAGER" ||
+        sr.role === "CLUSTER_HEAD" ||
+        sr.role === "VICE_PRESIDENT" ||
+        sr.role === "HEAD_OF_STORES"
     );
     if (approverRoles.length === 0) return success([]);
 
@@ -41,9 +45,9 @@ export async function GET(request: NextRequest) {
       currentApprovalStep: ws.stepOrder,
     }));
   } else {
-    if (roles.includes("PROJECT_MANAGER") && !isProcurement && !roles.includes("SUPER_ADMIN")) {
+    if (roles.includes("STORE_MANAGER") && !isProcurement && !roles.includes("SUPER_ADMIN")) {
       const mySiteIds = siteRoles
-        .filter((sr) => sr.role === "PROJECT_MANAGER")
+        .filter((sr) => sr.role === "STORE_MANAGER")
         .map((sr) => sr.siteId);
       where.OR = [
         { createdById: session.user.id },
@@ -72,13 +76,22 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: "desc" },
   });
 
-  const pendingIndents = indents.filter(
+  const pendingApprovalIndents = indents.filter(
     (i) => i.status === "PENDING_APPROVAL" || i.status === "PARTIALLY_APPROVED"
+  );
+  const approvedIndents = indents.filter((i) => i.status === "APPROVED");
+  const assignedIndents = indents.filter(
+    (i) =>
+      (i.status === "ASSIGNED" ||
+        i.status === "RFQ_SENT" ||
+        i.status === "QUOTES_RECEIVED") &&
+      i.assignedTo
   );
 
   const pendingWithMap: Record<string, { name: string; role: string }> = {};
-  if (pendingIndents.length > 0) {
-    const stepQueries = pendingIndents.map((i) => ({
+
+  if (pendingApprovalIndents.length > 0) {
+    const stepQueries = pendingApprovalIndents.map((i) => ({
       siteId: i.siteId,
       stepOrder: i.currentApprovalStep,
     }));
@@ -88,7 +101,7 @@ export async function GET(request: NextRequest) {
     const stepMap = new Map(steps.map((s) => [`${s.siteId}_${s.stepOrder}`, s.role]));
 
     const neededLookups = new Map<string, string>();
-    for (const ind of pendingIndents) {
+    for (const ind of pendingApprovalIndents) {
       const role = stepMap.get(`${ind.siteId}_${ind.currentApprovalStep}`);
       if (role) neededLookups.set(`${ind.siteId}_${role}`, role);
     }
@@ -106,7 +119,7 @@ export async function GET(request: NextRequest) {
       assignments.map((a) => [`${a.siteId}_${a.role}`, a.user.name])
     );
 
-    for (const ind of pendingIndents) {
+    for (const ind of pendingApprovalIndents) {
       const role = stepMap.get(`${ind.siteId}_${ind.currentApprovalStep}`);
       if (role) {
         const name = assignmentMap.get(`${ind.siteId}_${role}`);
@@ -114,6 +127,38 @@ export async function GET(request: NextRequest) {
           pendingWithMap[ind.id] = { name, role };
         }
       }
+    }
+  }
+
+  if (approvedIndents.length > 0) {
+    const approvedSiteIds = Array.from(
+      new Set(approvedIndents.map((i) => i.siteId))
+    );
+    const hopAssignments = await prisma.userSiteAssignment.findMany({
+      where: {
+        siteId: { in: approvedSiteIds },
+        role: "HEAD_OF_PROCUREMENT",
+      },
+      include: { user: { select: { name: true } } },
+    });
+    const hopBySite = new Map(
+      hopAssignments.map((a) => [a.siteId, a.user.name])
+    );
+
+    for (const ind of approvedIndents) {
+      const name = hopBySite.get(ind.siteId);
+      if (name) {
+        pendingWithMap[ind.id] = { name, role: "HEAD_OF_PROCUREMENT" };
+      }
+    }
+  }
+
+  for (const ind of assignedIndents) {
+    if (ind.assignedTo) {
+      pendingWithMap[ind.id] = {
+        name: ind.assignedTo.name,
+        role: "PROCUREMENT_TEAM_MEMBER",
+      };
     }
   }
 
@@ -167,6 +212,7 @@ export async function POST(request: Request) {
             materialId: item.materialId,
             quantity: item.quantity,
             unit: item.unit,
+            purposeOfUse: item.purposeOfUse || null,
             remarks: item.remarks,
             stockAtCreation: stockMap.get(item.materialId) || 0,
           })),

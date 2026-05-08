@@ -18,7 +18,7 @@ export default function IndentsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const isPM = siteRoles.some((sr) => sr.role === "PROJECT_MANAGER");
+  const isStoreManager = siteRoles.some((sr) => sr.role === "STORE_MANAGER");
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -32,7 +32,7 @@ export default function IndentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Material Indents" description="View and manage material indent requests">
-        {isPM && (
+        {isStoreManager && (
           <Button asChild><Link href="/indents/new"><Plus className="mr-2 h-4 w-4" />New Indent</Link></Button>
         )}
       </PageHeader>

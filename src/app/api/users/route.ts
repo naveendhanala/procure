@@ -1,12 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { getSession, unauthorized, forbidden, created, success, badRequest } from "@/lib/api-utils";
-import { hasRole } from "@/lib/permissions";
+import { hasAnyRole, hasRole } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
 
 export async function GET() {
   const session = await getSession();
   if (!session) return unauthorized();
-  if (!hasRole(session.user.siteRoles, "SUPER_ADMIN")) return forbidden();
+
+  const isAdmin = hasRole(session.user.siteRoles, "SUPER_ADMIN");
+  const isHoP = hasAnyRole(session.user.siteRoles, ["HEAD_OF_PROCUREMENT"]);
+
+  if (!isAdmin && !isHoP) return forbidden();
 
   const users = await prisma.user.findMany({
     orderBy: { name: "asc" },

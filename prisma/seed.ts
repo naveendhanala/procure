@@ -49,36 +49,21 @@ async function main() {
     },
   });
 
-  // Workflow: Mumbai has Cluster Head + VP
-  await prisma.approvalWorkflowStep.upsert({
-    where: { siteId_stepOrder: { siteId: site1.id, stepOrder: 1 } },
-    update: {},
-    create: { siteId: site1.id, stepOrder: 1, role: "CLUSTER_HEAD" },
-  });
-  await prisma.approvalWorkflowStep.upsert({
-    where: { siteId_stepOrder: { siteId: site1.id, stepOrder: 2 } },
-    update: {},
-    create: { siteId: site1.id, stepOrder: 2, role: "VICE_PRESIDENT" },
-  });
+  // Standard workflow: Project Manager -> Vice President -> Head of Stores
+  const standardWorkflow: { stepOrder: number; role: Role }[] = [
+    { stepOrder: 1, role: "PROJECT_MANAGER" },
+    { stepOrder: 2, role: "VICE_PRESIDENT" },
+    { stepOrder: 3, role: "HEAD_OF_STORES" },
+  ];
 
-  // Workflow: Delhi has VP only (no Cluster Head)
-  await prisma.approvalWorkflowStep.upsert({
-    where: { siteId_stepOrder: { siteId: site2.id, stepOrder: 1 } },
-    update: {},
-    create: { siteId: site2.id, stepOrder: 1, role: "VICE_PRESIDENT" },
-  });
-
-  // Workflow: Bangalore has Cluster Head + VP
-  await prisma.approvalWorkflowStep.upsert({
-    where: { siteId_stepOrder: { siteId: site3.id, stepOrder: 1 } },
-    update: {},
-    create: { siteId: site3.id, stepOrder: 1, role: "CLUSTER_HEAD" },
-  });
-  await prisma.approvalWorkflowStep.upsert({
-    where: { siteId_stepOrder: { siteId: site3.id, stepOrder: 2 } },
-    update: {},
-    create: { siteId: site3.id, stepOrder: 2, role: "VICE_PRESIDENT" },
-  });
+  for (const site of [site1, site2, site3]) {
+    await prisma.approvalWorkflowStep.deleteMany({ where: { siteId: site.id } });
+    for (const step of standardWorkflow) {
+      await prisma.approvalWorkflowStep.create({
+        data: { siteId: site.id, stepOrder: step.stepOrder, role: step.role },
+      });
+    }
+  }
 
   // Create Users
   const admin = await prisma.user.upsert({
@@ -114,6 +99,17 @@ async function main() {
     },
   });
 
+  const pmBangalore = await prisma.user.upsert({
+    where: { email: "pm.bangalore@procure.com" },
+    update: {},
+    create: {
+      name: "Karthik Rao",
+      email: "pm.bangalore@procure.com",
+      hashedPassword: password,
+      phone: "+91-9876543220",
+    },
+  });
+
   const chMumbai = await prisma.user.upsert({
     where: { email: "ch.mumbai@procure.com" },
     update: {},
@@ -133,6 +129,17 @@ async function main() {
       email: "vp@procure.com",
       hashedPassword: password,
       phone: "+91-9876543213",
+    },
+  });
+
+  const hos = await prisma.user.upsert({
+    where: { email: "hos@procure.com" },
+    update: {},
+    create: {
+      name: "Neha Joshi",
+      email: "hos@procure.com",
+      hashedPassword: password,
+      phone: "+91-9876543221",
     },
   });
 
@@ -191,6 +198,17 @@ async function main() {
     },
   });
 
+  const smBangalore = await prisma.user.upsert({
+    where: { email: "store.bangalore@procure.com" },
+    update: {},
+    create: {
+      name: "Anand Bhat",
+      email: "store.bangalore@procure.com",
+      hashedPassword: password,
+      phone: "+91-9876543222",
+    },
+  });
+
   // Site Assignments
   const assignments: { userId: string; siteId: string; role: Role }[] = [
     { userId: admin.id, siteId: site1.id, role: "SUPER_ADMIN" },
@@ -198,11 +216,15 @@ async function main() {
     { userId: admin.id, siteId: site3.id, role: "SUPER_ADMIN" },
     { userId: pmMumbai.id, siteId: site1.id, role: "PROJECT_MANAGER" },
     { userId: pmDelhi.id, siteId: site2.id, role: "PROJECT_MANAGER" },
+    { userId: pmBangalore.id, siteId: site3.id, role: "PROJECT_MANAGER" },
     { userId: chMumbai.id, siteId: site1.id, role: "CLUSTER_HEAD" },
     { userId: chMumbai.id, siteId: site3.id, role: "CLUSTER_HEAD" },
     { userId: vp.id, siteId: site1.id, role: "VICE_PRESIDENT" },
     { userId: vp.id, siteId: site2.id, role: "VICE_PRESIDENT" },
     { userId: vp.id, siteId: site3.id, role: "VICE_PRESIDENT" },
+    { userId: hos.id, siteId: site1.id, role: "HEAD_OF_STORES" },
+    { userId: hos.id, siteId: site2.id, role: "HEAD_OF_STORES" },
+    { userId: hos.id, siteId: site3.id, role: "HEAD_OF_STORES" },
     { userId: hop.id, siteId: site1.id, role: "HEAD_OF_PROCUREMENT" },
     { userId: hop.id, siteId: site2.id, role: "HEAD_OF_PROCUREMENT" },
     { userId: hop.id, siteId: site3.id, role: "HEAD_OF_PROCUREMENT" },
@@ -212,6 +234,7 @@ async function main() {
     { userId: ptm2.id, siteId: site3.id, role: "PROCUREMENT_TEAM_MEMBER" },
     { userId: smMumbai.id, siteId: site1.id, role: "STORE_MANAGER" },
     { userId: smDelhi.id, siteId: site2.id, role: "STORE_MANAGER" },
+    { userId: smBangalore.id, siteId: site3.id, role: "STORE_MANAGER" },
   ];
 
   for (const a of assignments) {
@@ -386,16 +409,19 @@ async function main() {
 
   console.log("Seed completed successfully!");
   console.log("\nTest accounts (all use password: password123):");
-  console.log("  Admin:       admin@procure.com");
-  console.log("  PM Mumbai:   pm.mumbai@procure.com");
-  console.log("  PM Delhi:    pm.delhi@procure.com");
-  console.log("  CH Mumbai:   ch.mumbai@procure.com");
-  console.log("  VP:          vp@procure.com");
-  console.log("  HoP:         hop@procure.com");
-  console.log("  Buyer 1:     buyer1@procure.com");
-  console.log("  Buyer 2:     buyer2@procure.com");
-  console.log("  Store Mum:   store.mumbai@procure.com");
-  console.log("  Store Del:   store.delhi@procure.com");
+  console.log("  Admin:           admin@procure.com");
+  console.log("  PM Mumbai:       pm.mumbai@procure.com");
+  console.log("  PM Delhi:        pm.delhi@procure.com");
+  console.log("  PM Bangalore:    pm.bangalore@procure.com");
+  console.log("  CH Mumbai:       ch.mumbai@procure.com");
+  console.log("  VP:              vp@procure.com");
+  console.log("  Head of Stores:  hos@procure.com");
+  console.log("  HoP:             hop@procure.com");
+  console.log("  Buyer 1:         buyer1@procure.com");
+  console.log("  Buyer 2:         buyer2@procure.com");
+  console.log("  Store Mumbai:    store.mumbai@procure.com");
+  console.log("  Store Delhi:     store.delhi@procure.com");
+  console.log("  Store Bangalore: store.bangalore@procure.com");
 }
 
 main()

@@ -13,6 +13,7 @@ enum Role {
   PROJECT_MANAGER
   CLUSTER_HEAD
   VICE_PRESIDENT
+  HEAD_OF_STORES
   HEAD_OF_PROCUREMENT
   PROCUREMENT_TEAM_MEMBER
   STORE_MANAGER
@@ -55,6 +56,9 @@ enum QuoteStatus {
 
 enum POStatus {
   DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
   ISSUED
   PARTIALLY_RECEIVED
   FULLY_RECEIVED
@@ -100,6 +104,7 @@ model User {
   assignedByHoP    MaterialIndent[]     @relation("AssignedByHoP")
   rfqsCreated      RFQ[]
   posCreated       PurchaseOrder[]
+  posApproved      PurchaseOrder[] @relation("POApprover")
   grnsCreated      GoodsReceipt[]
 
   @@map("users")
@@ -230,6 +235,7 @@ model IndentItem {
   materialId      String
   quantity        Decimal       @db.Decimal(12, 3)
   unit            UnitOfMeasure
+  purposeOfUse    String?
   remarks         String?
   stockAtCreation Decimal       @default(0) @db.Decimal(12, 3)
 
@@ -332,16 +338,20 @@ model RFQItem {
 }
 
 model RFQVendor {
-  id       String    @id @default(cuid())
-  rfqId    String
-  vendorId String
-  sentAt   DateTime?
-  sentVia  String?
+  id                String    @id @default(cuid())
+  rfqId             String
+  vendorId          String
+  accessToken       String    @unique
+  sentAt            DateTime?
+  sentVia           String?
+  emailedAt         DateTime?
+  quoteSubmittedAt  DateTime?
 
   rfq    RFQ    @relation(fields: [rfqId], references: [id], onDelete: Cascade)
   vendor Vendor @relation(fields: [vendorId], references: [id])
 
   @@unique([rfqId, vendorId])
+  @@index([accessToken])
   @@map("rfq_vendors")
 }
 
@@ -384,25 +394,30 @@ model QuoteItem {
 }
 
 model PurchaseOrder {
-  id                 String   @id @default(cuid())
-  poNumber           String   @unique
+  id                 String    @id @default(cuid())
+  poNumber           String    @unique
   indentId           String
   vendorId           String
   createdById        String
-  status             POStatus @default(DRAFT)
-  totalAmount        Decimal  @db.Decimal(14, 2)
-  gstAmount          Decimal? @db.Decimal(14, 2)
-  grandTotal         Decimal  @db.Decimal(14, 2)
+  status             POStatus  @default(DRAFT)
+  totalAmount        Decimal   @db.Decimal(14, 2)
+  gstAmount          Decimal?  @db.Decimal(14, 2)
+  grandTotal         Decimal   @db.Decimal(14, 2)
   deliveryDate       DateTime?
   deliveryAddress    String?
   termsAndConditions String?
   remarks            String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  approvedById       String?
+  approvedAt         DateTime?
+  rejectionReason    String?
+  sentToVendorAt     DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   indent        MaterialIndent @relation(fields: [indentId], references: [id])
   vendor        Vendor         @relation(fields: [vendorId], references: [id])
   createdBy     User           @relation(fields: [createdById], references: [id])
+  approvedBy    User?          @relation("POApprover", fields: [approvedById], references: [id])
   items         POItem[]
   goodsReceipts GoodsReceipt[]
 

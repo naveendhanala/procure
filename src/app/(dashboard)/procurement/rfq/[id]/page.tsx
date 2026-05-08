@@ -18,6 +18,7 @@ export default function RFQDetailPage() {
   const router = useRouter();
   const [rfq, setRfq] = useState<any>(null);
   const [quoteDialog, setQuoteDialog] = useState<any>(null);
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [quoteItems, setQuoteItems] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -33,6 +34,7 @@ export default function RFQDetailPage() {
 
   function openQuoteEntry(vendor: any) {
     setQuoteDialog(vendor);
+    setEditingQuoteId(null);
     setQuoteItems(
       rfq.items.map((item: any) => ({
         materialId: item.material.id,
@@ -43,6 +45,27 @@ export default function RFQDetailPage() {
         gstPercent: "",
         totalPrice: "",
       }))
+    );
+  }
+
+  function openQuoteEdit(quote: any) {
+    setQuoteDialog({ vendor: quote.vendor });
+    setEditingQuoteId(quote.id);
+    setQuoteItems(
+      rfq.items.map((rfqItem: any) => {
+        const qi = quote.items.find(
+          (qi: any) => qi.materialId === rfqItem.material.id
+        );
+        return {
+          materialId: rfqItem.material.id,
+          materialName: rfqItem.material.name,
+          quantity: Number(rfqItem.quantity),
+          unit: rfqItem.unit,
+          unitPrice: qi ? Number(qi.unitPrice).toString() : "",
+          gstPercent: qi && qi.gstPercent ? Number(qi.gstPercent).toString() : "",
+          totalPrice: qi ? Number(qi.totalPrice).toFixed(2) : "",
+        };
+      })
     );
   }
 
@@ -63,25 +86,34 @@ export default function RFQDetailPage() {
     if (!quoteDialog) return;
     setSaving(true);
 
-    const res = await fetch("/api/quotes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        rfqId: rfq.id,
-        vendorId: quoteDialog.vendor.id,
-        items: quoteItems.map((item) => ({
-          materialId: item.materialId,
-          quantity: item.quantity,
-          unit: item.unit,
-          unitPrice: parseFloat(item.unitPrice) || 0,
-          gstPercent: parseFloat(item.gstPercent) || null,
-          totalPrice: parseFloat(item.totalPrice) || 0,
-        })),
-      }),
-    });
+    const itemsPayload = quoteItems.map((item) => ({
+      materialId: item.materialId,
+      quantity: item.quantity,
+      unit: item.unit,
+      unitPrice: parseFloat(item.unitPrice) || 0,
+      gstPercent: parseFloat(item.gstPercent) || null,
+      totalPrice: parseFloat(item.totalPrice) || 0,
+    }));
+
+    const res = editingQuoteId
+      ? await fetch(`/api/quotes/${editingQuoteId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: itemsPayload }),
+        })
+      : await fetch("/api/quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            rfqId: rfq.id,
+            vendorId: quoteDialog.vendor.id,
+            items: itemsPayload,
+          }),
+        });
 
     if (res.ok) {
       setQuoteDialog(null);
+      setEditingQuoteId(null);
       await fetchRFQ();
     } else {
       const err = await res.json();
@@ -116,15 +148,44 @@ export default function RFQDetailPage() {
             <div className="space-y-2">
               {rfq.vendors.map((rv: any) => {
                 const hasQuote = rfq.quotes.some((q: any) => q.vendor.id === rv.vendor.id);
+                const link = rv.accessToken
+                  ? `${typeof window !== "undefined" ? window.location.origin : ""}/quote/${rv.accessToken}`
+                  : null;
                 return (
-                  <div key={rv.id} className="flex items-center justify-between rounded-md border p-3">
-                    <span className="font-medium">{rv.vendor.name}</span>
-                    {hasQuote ? (
-                      <Badge variant="success">Quote Received</Badge>
-                    ) : (
-                      <Button size="sm" variant="outline" onClick={() => openQuoteEntry(rv)}>
-                        Enter Quote
-                      </Button>
+                  <div key={rv.id} className="rounded-md border p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{rv.vendor.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {rv.vendor.email || "No email on file"}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {rv.emailedAt && !hasQuote && (
+                          <Badge variant="outline">Emailed</Badge>
+                        )}
+                        {hasQuote ? (
+                          <Badge variant="success">Quote Received</Badge>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => openQuoteEntry(rv)}>
+                            Enter Manually
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    {!hasQuote && link && (
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-muted-foreground">Quote link:</span>
+                        <code className="flex-1 truncate rounded bg-muted px-2 py-1">{link}</code>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => navigator.clipboard.writeText(link)}
+                        >
+                          Copy
+                        </Button>
+                      </div>
                     )}
                   </div>
                 );
@@ -203,6 +264,32 @@ export default function RFQDetailPage() {
                     </TableCell>
                   ))}
                 </TableRow>
+                <TableRow>
+                  <TableCell></TableCell>
+                  {rfq.quotes.map((q: any) => (
+                    <TableCell key={q.id} className="text-center">
+                      <div className="flex flex-col gap-1 items-center">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openQuoteEdit(q)}
+                        >
+                          Edit Quote
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            router.push(
+                              `/procurement/purchase-orders/new?indentId=${rfq.indent.id}&quoteId=${q.id}`
+                            )
+                          }
+                        >
+                          Finalize & Create PO
+                        </Button>
+                      </div>
+                    </TableCell>
+                  ))}
+                </TableRow>
               </TableBody>
             </Table>
           </CardContent>
@@ -212,7 +299,10 @@ export default function RFQDetailPage() {
       <Dialog open={!!quoteDialog} onOpenChange={() => setQuoteDialog(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Enter Quote from {quoteDialog?.vendor?.name}</DialogTitle>
+            <DialogTitle>
+              {editingQuoteId ? "Update Quote" : "Enter Quote"} from{" "}
+              {quoteDialog?.vendor?.name}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4 max-h-96 overflow-y-auto">
             {quoteItems.map((item, index) => (

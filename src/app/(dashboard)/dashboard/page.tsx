@@ -29,6 +29,7 @@ export default function DashboardPage() {
   const isPM = roles.includes("PROJECT_MANAGER");
   const isCH = roles.includes("CLUSTER_HEAD");
   const isVP = roles.includes("VICE_PRESIDENT");
+  const isHoS = roles.includes("HEAD_OF_STORES");
   const isHoP = roles.includes("HEAD_OF_PROCUREMENT");
   const isPTM = roles.includes("PROCUREMENT_TEAM_MEMBER");
   const isSM = roles.includes("STORE_MANAGER");
@@ -42,43 +43,27 @@ export default function DashboardPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {isPM && (
-          <>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">My Indents</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">
-                  Create and track material indents
-                </p>
-                <Button asChild size="sm" className="mt-3">
-                  <Link href="/indents/new">
-                    <Plus className="mr-1 h-3 w-3" />
-                    New Indent
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Site Inventory</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <p className="text-xs text-muted-foreground">
-                  View current stock at your site
-                </p>
-                <Button asChild variant="outline" size="sm" className="mt-3">
-                  <Link href="/inventory">View Inventory</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </>
+        {isSM && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">My Indents</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                Create and track material indents
+              </p>
+              <Button asChild size="sm" className="mt-3">
+                <Link href="/indents/new">
+                  <Plus className="mr-1 h-3 w-3" />
+                  New Indent
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
-        {(isCH || isVP) && (
+        {(isPM || isCH || isVP || isHoS) && (
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>

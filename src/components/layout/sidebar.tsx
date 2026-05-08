@@ -48,6 +48,7 @@ const navItems: NavItem[] = [
       "PROJECT_MANAGER",
       "CLUSTER_HEAD",
       "VICE_PRESIDENT",
+      "HEAD_OF_STORES",
       "HEAD_OF_PROCUREMENT",
       "PROCUREMENT_TEAM_MEMBER",
       "STORE_MANAGER",
@@ -57,7 +58,7 @@ const navItems: NavItem[] = [
     title: "Approvals",
     href: "/approvals",
     icon: CheckSquare,
-    roles: ["CLUSTER_HEAD", "VICE_PRESIDENT"],
+    roles: ["PROJECT_MANAGER", "CLUSTER_HEAD", "VICE_PRESIDENT", "HEAD_OF_STORES"],
   },
   {
     title: "Procurement",
@@ -79,6 +80,7 @@ const navItems: NavItem[] = [
       "PROJECT_MANAGER",
       "CLUSTER_HEAD",
       "VICE_PRESIDENT",
+      "HEAD_OF_STORES",
       "STORE_MANAGER",
       "HEAD_OF_PROCUREMENT",
       "PROCUREMENT_TEAM_MEMBER",
@@ -106,7 +108,7 @@ const navItems: NavItem[] = [
     title: "Vendors",
     href: "/admin/vendors",
     icon: Building2,
-    roles: ["SUPER_ADMIN", "HEAD_OF_PROCUREMENT"],
+    roles: ["SUPER_ADMIN", "HEAD_OF_PROCUREMENT", "PROCUREMENT_TEAM_MEMBER"],
   },
   {
     title: "Settings",

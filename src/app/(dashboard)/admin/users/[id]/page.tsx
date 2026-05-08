@@ -12,7 +12,8 @@ import { Plus, Trash2 } from "lucide-react";
 
 const ALL_ROLES = [
   "SUPER_ADMIN", "PROJECT_MANAGER", "CLUSTER_HEAD", "VICE_PRESIDENT",
-  "HEAD_OF_PROCUREMENT", "PROCUREMENT_TEAM_MEMBER", "STORE_MANAGER",
+  "HEAD_OF_STORES", "HEAD_OF_PROCUREMENT", "PROCUREMENT_TEAM_MEMBER",
+  "STORE_MANAGER",
 ];
 
 function formatRole(role: string): string {

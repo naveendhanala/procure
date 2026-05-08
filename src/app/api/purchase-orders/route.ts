@@ -77,13 +77,13 @@ export async function POST(request: Request) {
   const po = await prisma.$transaction(async (tx) => {
     const poNumber = await generatePONumber(tx);
 
-    const created = await tx.purchaseOrder.create({
+    const newPO = await tx.purchaseOrder.create({
       data: {
         poNumber,
         indentId,
         vendorId,
         createdById: session.user.id,
-        status: "ISSUED",
+        status: "PENDING_APPROVAL",
         totalAmount,
         gstAmount: gstAmount || null,
         grandTotal: totalAmount + gstAmount,
@@ -108,12 +108,7 @@ export async function POST(request: Request) {
       },
     });
 
-    await tx.materialIndent.update({
-      where: { id: indentId },
-      data: { status: "PO_CREATED" },
-    });
-
-    return created;
+    return newPO;
   });
 
   return created(po);

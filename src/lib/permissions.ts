@@ -3,15 +3,10 @@ import { SiteRole } from "@/types/next-auth";
 
 const ROLE_PERMISSIONS: Record<Role, string[]> = {
   SUPER_ADMIN: ["admin.*", "indent.read", "inventory.read", "vendor.read"],
-  PROJECT_MANAGER: [
-    "indent.create",
-    "indent.read",
-    "indent.edit_own",
-    "indent.submit",
-    "inventory.read",
-  ],
+  PROJECT_MANAGER: ["indent.read", "indent.approve", "inventory.read"],
   CLUSTER_HEAD: ["indent.read", "indent.approve", "inventory.read"],
   VICE_PRESIDENT: ["indent.read", "indent.approve", "inventory.read"],
+  HEAD_OF_STORES: ["indent.read", "indent.approve", "inventory.read"],
   HEAD_OF_PROCUREMENT: [
     "indent.read",
     "indent.assign",
@@ -28,10 +23,17 @@ const ROLE_PERMISSIONS: Record<Role, string[]> = {
     "quote.*",
     "po.*",
     "grn.read",
-    "vendor.read",
+    "vendor.*",
     "inventory.read",
   ],
-  STORE_MANAGER: ["indent.read", "inventory.*", "grn.*"],
+  STORE_MANAGER: [
+    "indent.create",
+    "indent.read",
+    "indent.edit_own",
+    "indent.submit",
+    "inventory.*",
+    "grn.*",
+  ],
 };
 
 function matchPermission(held: string, required: string): boolean {
@@ -83,6 +85,7 @@ export function isSiteRole(siteRoles: SiteRole[]): boolean {
       sr.role === "PROJECT_MANAGER" ||
       sr.role === "CLUSTER_HEAD" ||
       sr.role === "VICE_PRESIDENT" ||
+      sr.role === "HEAD_OF_STORES" ||
       sr.role === "STORE_MANAGER"
   );
 }

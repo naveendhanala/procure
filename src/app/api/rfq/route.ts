@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getSession, unauthorized, forbidden, created, success, badRequest } from "@/lib/api-utils";
 import { hasAnyRole } from "@/lib/permissions";
 import { generateRFQNumber } from "@/lib/doc-numbers";
+import { buildRFQEmail, generateAccessToken, sendEmail } from "@/lib/email";
 
 export async function GET() {
   const session = await getSession();
@@ -66,11 +67,12 @@ export async function POST(request: Request) {
   const rfq = await prisma.$transaction(async (tx) => {
     const rfqNumber = await generateRFQNumber(tx);
 
-    const created = await tx.rFQ.create({
+    const newRfq = await tx.rFQ.create({
       data: {
         rfqNumber,
         indentId,
         createdById: session.user.id,
+        status: "SENT",
         dueDate: dueDate ? new Date(dueDate) : null,
         remarks,
         items: {
@@ -81,7 +83,10 @@ export async function POST(request: Request) {
           })),
         },
         vendors: {
-          create: vendorIds.map((vendorId: string) => ({ vendorId })),
+          create: vendorIds.map((vendorId: string) => ({
+            vendorId,
+            accessToken: generateAccessToken(),
+          })),
         },
       },
       include: {
@@ -95,7 +100,36 @@ export async function POST(request: Request) {
       data: { status: "RFQ_SENT" },
     });
 
-    return created;
+    return newRfq;
+  });
+
+  const emailMessages = rfq.vendors.map((rv) =>
+    buildRFQEmail(
+      {
+        vendorName: rv.vendor.name,
+        vendorEmail: rv.vendor.email,
+        accessToken: rv.accessToken,
+      },
+      {
+        rfqNumber: rfq.rfqNumber,
+        dueDate: rfq.dueDate,
+        remarks: rfq.remarks,
+        items: rfq.items.map((item) => ({
+          materialName: item.material.name,
+          quantity: Number(item.quantity),
+          unit: item.unit,
+        })),
+      }
+    )
+  );
+
+  const emailedAt = new Date();
+  for (const msg of emailMessages) {
+    await sendEmail(msg);
+  }
+  await prisma.rFQVendor.updateMany({
+    where: { rfqId: rfq.id },
+    data: { emailedAt, sentAt: emailedAt, sentVia: "EMAIL" },
   });
 
   return created(rfq);

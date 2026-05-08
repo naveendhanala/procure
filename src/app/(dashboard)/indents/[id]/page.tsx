@@ -117,6 +117,7 @@ export default function IndentDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Material</TableHead>
+                    <TableHead>Purpose of Use</TableHead>
                     <TableHead className="text-right">Requested</TableHead>
                     <TableHead>Unit</TableHead>
                     <TableHead className="text-right">Stock at Creation</TableHead>
@@ -136,6 +137,9 @@ export default function IndentDetailPage() {
                         <TableCell>
                           <div className="font-medium">{item.material.name}</div>
                           <div className="text-xs text-muted-foreground">{item.material.code}</div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-xs">
+                          {item.purposeOfUse || "—"}
                         </TableCell>
                         <TableCell className="text-right font-medium">{Number(item.quantity)}</TableCell>
                         <TableCell>{item.unit}</TableCell>

@@ -33,9 +33,22 @@ interface IndentItem {
   material?: Material;
   quantity: string;
   unit: string;
+  purposeOfUse: string;
   remarks: string;
   currentStock: number | null;
   stats: MaterialStats | null;
+  history: HistoryRow[] | null;
+}
+
+interface HistoryRow {
+  indentId: string;
+  indentNumber: string;
+  status: string;
+  purposeOfUse: string | null;
+  quantityIndented: number;
+  quantityUsed: number;
+  balanceQuantity: number;
+  unit: string;
 }
 
 export default function NewIndentPage() {
@@ -49,16 +62,28 @@ export default function NewIndentPage() {
   const [remarks, setRemarks] = useState("");
   const [items, setItems] = useState<IndentItem[]>([]);
 
-  const pmSites = siteRoles.filter((sr) => sr.role === "PROJECT_MANAGER");
+  const storeSites = siteRoles.filter((sr) => sr.role === "STORE_MANAGER");
 
   useEffect(() => {
     fetch("/api/materials").then((r) => r.json()).then(setMaterials);
-    if (pmSites.length === 1) setSiteId(pmSites[0].siteId);
+    if (storeSites.length === 1) setSiteId(storeSites[0].siteId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function addItem() {
-    setItems([...items, { materialId: "", quantity: "", unit: "", remarks: "", currentStock: null, stats: null }]);
+    setItems([
+      ...items,
+      {
+        materialId: "",
+        quantity: "",
+        unit: "",
+        purposeOfUse: "",
+        remarks: "",
+        currentStock: null,
+        stats: null,
+        history: null,
+      },
+    ]);
   }
 
   function removeItem(index: number) {
@@ -73,16 +98,20 @@ export default function NewIndentPage() {
     updated[index].unit = mat?.unit || "";
     updated[index].currentStock = null;
     updated[index].stats = null;
+    updated[index].history = null;
 
     if (siteId && materialId) {
-      const [invRes, statsRes] = await Promise.all([
+      const [invRes, statsRes, historyRes] = await Promise.all([
         fetch(`/api/inventory?siteId=${siteId}&materialId=${materialId}`),
         fetch(`/api/material-stats?siteId=${siteId}&materialIds=${materialId}`),
+        fetch(`/api/material-stats/history?siteId=${siteId}&materialId=${materialId}`),
       ]);
       const inv = await invRes.json();
       const statsData = await statsRes.json();
+      const historyData = await historyRes.json();
       updated[index].currentStock = inv.length > 0 ? Number(inv[0].quantity) : 0;
       updated[index].stats = statsData[materialId] ?? null;
+      updated[index].history = Array.isArray(historyData) ? historyData : [];
     }
 
     setItems([...updated]);
@@ -105,6 +134,7 @@ export default function NewIndentPage() {
           materialId: item.materialId,
           quantity: parseFloat(item.quantity),
           unit: item.unit,
+          purposeOfUse: item.purposeOfUse || null,
           remarks: item.remarks || null,
         })),
       }),
@@ -134,7 +164,7 @@ export default function NewIndentPage() {
                 <Select value={siteId} onValueChange={setSiteId}>
                   <SelectTrigger><SelectValue placeholder="Select Site" /></SelectTrigger>
                   <SelectContent>
-                    {pmSites.map((sr) => (
+                    {storeSites.map((sr) => (
                       <SelectItem key={sr.siteId} value={sr.siteId}>{sr.siteCode} - {sr.siteName}</SelectItem>
                     ))}
                   </SelectContent>
@@ -257,6 +287,54 @@ export default function NewIndentPage() {
                     </div>
                   </div>
                 )}
+
+                {item.history && item.history.length > 0 && (
+                  <div className="rounded-md border p-3 space-y-2">
+                    <div className="text-sm font-medium">
+                      Previous Indents with Balance Quantity
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="text-left text-muted-foreground border-b">
+                            <th className="py-1 pr-3">Indent No</th>
+                            <th className="py-1 pr-3">Status</th>
+                            <th className="py-1 pr-3 text-right">Qty Indented</th>
+                            <th className="py-1 pr-3 text-right">Qty Used</th>
+                            <th className="py-1 pr-3 text-right">Balance</th>
+                            <th className="py-1">Purpose of Use</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {item.history.map((h) => (
+                            <tr key={h.indentId} className="border-b last:border-b-0">
+                              <td className="py-1 pr-3 font-medium">{h.indentNumber}</td>
+                              <td className="py-1 pr-3">{h.status}</td>
+                              <td className="py-1 pr-3 text-right">{h.quantityIndented} {h.unit}</td>
+                              <td className="py-1 pr-3 text-right">{h.quantityUsed} {h.unit}</td>
+                              <td className="py-1 pr-3 text-right font-medium">{h.balanceQuantity} {h.unit}</td>
+                              <td className="py-1 text-muted-foreground">{h.purposeOfUse || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Purpose of Use</Label>
+                  <Input
+                    placeholder="e.g. Tower B foundation slab"
+                    required
+                    value={item.purposeOfUse}
+                    onChange={(e) => {
+                      const updated = [...items];
+                      updated[index].purposeOfUse = e.target.value;
+                      setItems(updated);
+                    }}
+                  />
+                </div>
 
                 <Input
                   placeholder="Item remarks (optional)"

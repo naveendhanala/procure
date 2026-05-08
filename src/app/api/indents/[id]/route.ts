@@ -17,7 +17,7 @@ export async function GET(
     include: {
       site: true,
       createdBy: { select: { id: true, name: true, email: true } },
-      assignedTo: { select: { id: true, name: true, email: true } },
+      assignedTo: { select: { id: true, name: true, email: true, phone: true } },
       assignedBy: { select: { id: true, name: true } },
       items: {
         include: {
@@ -160,6 +160,29 @@ export async function GET(
         };
       }
     }
+  } else if (indent.status === "APPROVED") {
+    const hopAssignment = await prisma.userSiteAssignment.findFirst({
+      where: { siteId: indent.siteId, role: "HEAD_OF_PROCUREMENT" },
+      include: { user: { select: { name: true, email: true, phone: true } } },
+    });
+    if (hopAssignment) {
+      pendingWith = {
+        ...hopAssignment.user,
+        role: "HEAD_OF_PROCUREMENT",
+      };
+    }
+  } else if (
+    (indent.status === "ASSIGNED" ||
+      indent.status === "RFQ_SENT" ||
+      indent.status === "QUOTES_RECEIVED") &&
+    indent.assignedTo
+  ) {
+    pendingWith = {
+      name: indent.assignedTo.name,
+      email: indent.assignedTo.email,
+      phone: indent.assignedTo.phone,
+      role: "PROCUREMENT_TEAM_MEMBER",
+    };
   }
 
   return success({
@@ -216,6 +239,7 @@ export async function PATCH(
               materialId: item.materialId,
               quantity: item.quantity,
               unit: item.unit,
+              purposeOfUse: item.purposeOfUse || null,
               remarks: item.remarks,
               stockAtCreation: stockMap.get(item.materialId) || 0,
             },

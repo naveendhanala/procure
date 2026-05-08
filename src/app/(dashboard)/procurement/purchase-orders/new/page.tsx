@@ -15,6 +15,7 @@ export default function NewPOPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const indentId = searchParams.get("indentId");
+  const quoteIdParam = searchParams.get("quoteId");
   const [indent, setIndent] = useState<any>(null);
   const [selectedVendor, setSelectedVendor] = useState("");
   const [items, setItems] = useState<any[]>([]);
@@ -35,13 +36,15 @@ export default function NewPOPage() {
           if (data.rfqs?.[0]?.quotes) {
             const allQuotes = data.rfqs.flatMap((r: any) => r.quotes);
             if (allQuotes.length > 0) {
-              const bestQuote = allQuotes.reduce((best: any, q: any) =>
-                !best || Number(q.totalAmount) < Number(best.totalAmount) ? q : best, null
-              );
-              if (bestQuote) {
-                setSelectedVendor(bestQuote.vendor.id);
+              const chosen = quoteIdParam
+                ? allQuotes.find((q: any) => q.id === quoteIdParam)
+                : allQuotes.reduce((best: any, q: any) =>
+                    !best || Number(q.totalAmount) < Number(best.totalAmount) ? q : best, null
+                  );
+              if (chosen) {
+                setSelectedVendor(chosen.vendor.id);
                 setItems(
-                  bestQuote.items.map((qi: any) => ({
+                  chosen.items.map((qi: any) => ({
                     materialId: qi.materialId,
                     materialName: qi.material?.name || qi.materialId,
                     quantity: Number(qi.quantity),
@@ -213,7 +216,7 @@ export default function NewPOPage() {
         </Card>
 
         <div className="flex gap-2">
-          <Button type="submit" disabled={loading || !selectedVendor}>{loading ? "Creating..." : "Create Purchase Order"}</Button>
+          <Button type="submit" disabled={loading || !selectedVendor}>{loading ? "Submitting..." : "Submit for HoP Approval"}</Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
         </div>
       </form>
