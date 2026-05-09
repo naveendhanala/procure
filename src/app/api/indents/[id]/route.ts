@@ -34,6 +34,7 @@ export async function GET(
         ? {
             rfqs: {
               include: {
+                items: { select: { id: true, materialId: true } },
                 vendors: { include: { vendor: { select: { id: true, name: true } } } },
                 quotes: {
                   include: {

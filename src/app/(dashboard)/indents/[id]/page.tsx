@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { CheckCircle, XCircle, Send, Package, Info, Clock, Mail, Phone } from "lucide-react";
+import { CheckCircle, XCircle, Send, Package, Info, Clock, Mail, Phone, FileText, ShoppingCart } from "lucide-react";
+import Link from "next/link";
 
 function formatRole(role: string): string {
   return role.split("_").map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join(" ");
@@ -215,22 +216,127 @@ export default function IndentDetailPage() {
             </CardContent>
           </Card>
 
-          {isProcurement && indent.purchaseOrders?.length > 0 && (
-            <Card>
-              <CardHeader><CardTitle>Purchase Orders</CardTitle></CardHeader>
-              <CardContent>
-                {indent.purchaseOrders.map((po: any) => (
-                  <div key={po.id} className="flex items-center justify-between rounded-md border p-3">
-                    <div>
-                      <span className="font-medium">{po.poNumber}</span>
-                      <span className="ml-2 text-sm text-muted-foreground">{po.vendor.name}</span>
+          {isProcurement && (() => {
+            const rfqs = indent.rfqs ?? [];
+            const activeRfqMaterialIds = new Set<string>();
+            for (const rfq of rfqs) {
+              if (rfq.status === "CLOSED" || rfq.status === "CANCELLED") continue;
+              for (const ri of rfq.items ?? []) activeRfqMaterialIds.add(ri.materialId);
+            }
+            const remainingItems = indent.items.filter(
+              (it: any) => !activeRfqMaterialIds.has(it.materialId)
+            );
+            const inProcurement = ["ASSIGNED", "RFQ_SENT", "QUOTES_RECEIVED"].includes(
+              indent.status
+            );
+
+            return (
+              <>
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>RFQs ({rfqs.length})</CardTitle>
+                      {inProcurement && (
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={`/procurement/rfq/new?indentId=${indent.id}`}>
+                            <FileText className="mr-1 h-3 w-3" />
+                            {rfqs.length === 0
+                              ? "Create RFQ"
+                              : remainingItems.length > 0
+                              ? `Create RFQ for ${remainingItems.length} remaining`
+                              : "Create another RFQ"}
+                          </Link>
+                        </Button>
+                      )}
                     </div>
-                    <StatusBadge status={po.status} />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+                  </CardHeader>
+                  <CardContent>
+                    {rfqs.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No RFQs yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {rfqs.map((rfq: any) => (
+                          <Link
+                            key={rfq.id}
+                            href={`/procurement/rfq/${rfq.id}`}
+                            className="flex items-center justify-between rounded-md border p-3 hover:bg-accent"
+                          >
+                            <div>
+                              <div className="font-medium">{rfq.rfqNumber}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {(rfq.items ?? []).length} item
+                                {(rfq.items ?? []).length === 1 ? "" : "s"} ·{" "}
+                                {(rfq.vendors ?? []).length} vendor
+                                {(rfq.vendors ?? []).length === 1 ? "" : "s"}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant={
+                                  (rfq.quotes ?? []).length === (rfq.vendors ?? []).length
+                                    ? "success"
+                                    : (rfq.quotes ?? []).length > 0
+                                    ? "secondary"
+                                    : "outline"
+                                }
+                              >
+                                {(rfq.quotes ?? []).length} / {(rfq.vendors ?? []).length} quotes
+                              </Badge>
+                              <StatusBadge status={rfq.status} />
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                    {inProcurement && remainingItems.length > 0 && rfqs.length > 0 && (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {remainingItems.length} item
+                        {remainingItems.length === 1 ? " is" : "s are"} not yet on an active RFQ:{" "}
+                        {remainingItems
+                          .map((it: any) => it.material.name)
+                          .join(", ")}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {indent.purchaseOrders?.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle>Purchase Orders ({indent.purchaseOrders.length})</CardTitle>
+                        {inProcurement && (
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={`/procurement/purchase-orders/new?indentId=${indent.id}`}>
+                              <ShoppingCart className="mr-1 h-3 w-3" />
+                              Create PO
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {indent.purchaseOrders.map((po: any) => (
+                        <Link
+                          key={po.id}
+                          href={`/procurement/purchase-orders/${po.id}`}
+                          className="flex items-center justify-between rounded-md border p-3 hover:bg-accent"
+                        >
+                          <div>
+                            <span className="font-medium">{po.poNumber}</span>
+                            <span className="ml-2 text-sm text-muted-foreground">
+                              {po.vendor.name}
+                            </span>
+                          </div>
+                          <StatusBadge status={po.status} />
+                        </Link>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         <div className="space-y-6">

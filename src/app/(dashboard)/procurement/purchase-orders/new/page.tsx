@@ -33,32 +33,31 @@ export default function NewPOPage() {
           setIndent(data);
           setDeliveryAddress(data.site?.address || "");
 
-          if (data.rfqs?.[0]?.quotes) {
-            const allQuotes = data.rfqs.flatMap((r: any) => r.quotes);
-            if (allQuotes.length > 0) {
-              const chosen = quoteIdParam
+          const allQuotes = (data.rfqs ?? []).flatMap((r: any) => r.quotes ?? []);
+          const chosen = allQuotes.length > 0
+            ? (quoteIdParam
                 ? allQuotes.find((q: any) => q.id === quoteIdParam)
-                : allQuotes.reduce((best: any, q: any) =>
-                    !best || Number(q.totalAmount) < Number(best.totalAmount) ? q : best, null
-                  );
-              if (chosen) {
-                setSelectedVendor(chosen.vendor.id);
-                setItems(
-                  chosen.items.map((qi: any) => ({
-                    materialId: qi.materialId,
-                    materialName: qi.material?.name || qi.materialId,
-                    quantity: Number(qi.quantity),
-                    unit: qi.unit,
-                    unitPrice: Number(qi.unitPrice),
-                    gstPercent: qi.gstPercent ? Number(qi.gstPercent) : 18,
-                    totalPrice: Number(qi.totalPrice),
-                  }))
-                );
-              }
-            }
-          }
+                : allQuotes.reduce(
+                    (best: any, q: any) =>
+                      !best || Number(q.totalAmount) < Number(best.totalAmount) ? q : best,
+                    null
+                  ))
+            : null;
 
-          if (items.length === 0) {
+          if (chosen) {
+            setSelectedVendor(chosen.vendor.id);
+            setItems(
+              chosen.items.map((qi: any) => ({
+                materialId: qi.materialId,
+                materialName: qi.material?.name || qi.materialId,
+                quantity: Number(qi.quantity),
+                unit: qi.unit,
+                unitPrice: Number(qi.unitPrice),
+                gstPercent: qi.gstPercent ? Number(qi.gstPercent) : 18,
+                totalPrice: Number(qi.totalPrice),
+              }))
+            );
+          } else {
             setItems(
               data.items.map((item: any) => ({
                 materialId: item.materialId,
@@ -74,7 +73,7 @@ export default function NewPOPage() {
         });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [indentId]);
+  }, [indentId, quoteIdParam]);
 
   function updateItem(index: number, field: string, value: string) {
     const updated = [...items];

@@ -29,6 +29,7 @@ export default function NewRFQPage() {
   const indentId = searchParams.get("indentId");
 
   const [indent, setIndent] = useState<any>(null);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedVendors, setSelectedVendors] = useState<Vendor[]>([]);
@@ -48,14 +49,49 @@ export default function NewRFQPage() {
 
   const indentCategories = useMemo(() => {
     if (!indent) return [] as string[];
+    const selectedItems =
+      selectedItemIds.length > 0
+        ? indent.items.filter((it: any) => selectedItemIds.includes(it.id))
+        : indent.items;
     return Array.from(
-      new Set(indent.items.map((i: any) => i.material.category as string))
+      new Set(selectedItems.map((i: any) => i.material.category as string))
     );
+  }, [indent, selectedItemIds]);
+
+  const activeRfqByItemMaterial = useMemo(() => {
+    if (!indent?.rfqs) return new Map<string, string[]>();
+    const map = new Map<string, string[]>();
+    for (const rfq of indent.rfqs) {
+      if (rfq.status === "CLOSED" || rfq.status === "CANCELLED") continue;
+      for (const ri of rfq.items ?? []) {
+        const arr = map.get(ri.materialId) ?? [];
+        if (!arr.includes(rfq.rfqNumber)) arr.push(rfq.rfqNumber);
+        map.set(ri.materialId, arr);
+      }
+    }
+    return map;
   }, [indent]);
+
+  function toggleItem(id: string) {
+    setSelectedItemIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+  function selectAllItems() {
+    setSelectedItemIds(indent?.items?.map((it: any) => it.id) ?? []);
+  }
+  function clearItems() {
+    setSelectedItemIds([]);
+  }
 
   useEffect(() => {
     if (indentId) {
-      fetch(`/api/indents/${indentId}`).then((r) => r.json()).then(setIndent);
+      fetch(`/api/indents/${indentId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setIndent(data);
+          setSelectedItemIds(data.items?.map((it: any) => it.id) ?? []);
+        });
     }
   }, [indentId]);
 
@@ -126,7 +162,7 @@ export default function NewRFQPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!indentId || selectedVendors.length === 0) return;
+    if (!indentId || selectedVendors.length === 0 || selectedItemIds.length === 0) return;
     setLoading(true);
 
     const res = await fetch("/api/rfq", {
@@ -135,6 +171,7 @@ export default function NewRFQPage() {
       body: JSON.stringify({
         indentId,
         vendorIds: selectedVendors.map((v) => v.id),
+        itemIds: selectedItemIds,
         dueDate: dueDate || null,
         remarks: remarks || null,
       }),
@@ -160,26 +197,65 @@ export default function NewRFQPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <Card>
-          <CardHeader><CardTitle>Indent Items</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Items for this RFQ</CardTitle>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant="ghost" onClick={selectAllItems}>
+                  Select all
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={clearItems}>
+                  Clear
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10"></TableHead>
                   <TableHead>Material</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Quantity</TableHead>
                   <TableHead>Unit</TableHead>
+                  <TableHead>Already on RFQ</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {indent.items.map((item: any) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.material.name}</TableCell>
-                    <TableCell><Badge variant="outline">{item.material.category}</Badge></TableCell>
-                    <TableCell>{Number(item.quantity)}</TableCell>
-                    <TableCell>{item.unit}</TableCell>
-                  </TableRow>
-                ))}
+                {indent.items.map((item: any) => {
+                  const onRfqs = activeRfqByItemMaterial.get(item.materialId) ?? [];
+                  return (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={selectedItemIds.includes(item.id)}
+                          onChange={() => toggleItem(item.id)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{item.material.name}</div>
+                        <div className="text-xs text-muted-foreground">{item.material.code}</div>
+                      </TableCell>
+                      <TableCell><Badge variant="outline">{item.material.category}</Badge></TableCell>
+                      <TableCell>{Number(item.quantity)}</TableCell>
+                      <TableCell>{item.unit}</TableCell>
+                      <TableCell>
+                        {onRfqs.length === 0 ? (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {onRfqs.map((no) => (
+                              <Badge key={no} variant="secondary" className="text-xs">{no}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </CardContent>
@@ -307,8 +383,15 @@ export default function NewRFQPage() {
         </Card>
 
         <div className="flex gap-2">
-          <Button type="submit" disabled={loading || selectedVendors.length === 0}>
-            {loading ? "Creating..." : `Create RFQ (${selectedVendors.length} vendor${selectedVendors.length === 1 ? "" : "s"})`}
+          <Button
+            type="submit"
+            disabled={
+              loading || selectedVendors.length === 0 || selectedItemIds.length === 0
+            }
+          >
+            {loading
+              ? "Creating..."
+              : `Create RFQ (${selectedItemIds.length} item${selectedItemIds.length === 1 ? "" : "s"}, ${selectedVendors.length} vendor${selectedVendors.length === 1 ? "" : "s"})`}
           </Button>
           <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
         </div>

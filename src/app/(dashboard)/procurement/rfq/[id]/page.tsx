@@ -143,11 +143,30 @@ export default function RFQDetailPage() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Vendors ({rfq.vendors.length})</CardTitle></CardHeader>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Vendors ({rfq.vendors.length})</CardTitle>
+              <Badge
+                variant={
+                  rfq.quotes.length === rfq.vendors.length
+                    ? "success"
+                    : rfq.quotes.length > 0
+                    ? "secondary"
+                    : "outline"
+                }
+              >
+                {rfq.quotes.length} / {rfq.vendors.length} quotes received
+              </Badge>
+            </div>
+          </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {rfq.vendors.map((rv: any) => {
-                const hasQuote = rfq.quotes.some((q: any) => q.vendor.id === rv.vendor.id);
+                const quote = rfq.quotes.find(
+                  (q: any) => q.vendor.id === rv.vendor.id
+                );
+                const hasQuote = !!quote;
+                const submittedViaPortal = !!rv.quoteSubmittedAt;
                 const link = rv.accessToken
                   ? `${typeof window !== "undefined" ? window.location.origin : ""}/quote/${rv.accessToken}`
                   : null;
@@ -161,15 +180,32 @@ export default function RFQDetailPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        {rv.emailedAt && !hasQuote && (
-                          <Badge variant="outline">Emailed</Badge>
-                        )}
                         {hasQuote ? (
-                          <Badge variant="success">Quote Received</Badge>
+                          <>
+                            <Badge variant="success">
+                              {submittedViaPortal
+                                ? "Submitted via portal"
+                                : "Entered manually"}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openQuoteEdit(quote)}
+                            >
+                              Edit Quote
+                            </Button>
+                          </>
                         ) : (
-                          <Button size="sm" variant="outline" onClick={() => openQuoteEntry(rv)}>
-                            Enter Manually
-                          </Button>
+                          <>
+                            {rv.emailedAt && <Badge variant="outline">Emailed</Badge>}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openQuoteEntry(rv)}
+                            >
+                              Enter Manually
+                            </Button>
+                          </>
                         )}
                       </div>
                     </div>

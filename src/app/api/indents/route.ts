@@ -162,10 +162,91 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const indentIds = indents.map((i) => i.id);
+  const materialProgressMap: Record<
+    string,
+    {
+      totalItems: number;
+      withActiveRfq: number;
+      withQuotes: number;
+      withPo: number;
+    }
+  > = {};
+
+  if (indentIds.length > 0) {
+    const [rfqRows, poRows] = await Promise.all([
+      prisma.rFQ.findMany({
+        where: {
+          indentId: { in: indentIds },
+          status: { notIn: ["CLOSED", "CANCELLED"] },
+        },
+        select: {
+          indentId: true,
+          items: { select: { materialId: true } },
+          quotes: { select: { items: { select: { materialId: true } } } },
+        },
+      }),
+      prisma.purchaseOrder.findMany({
+        where: {
+          indentId: { in: indentIds },
+          status: { notIn: ["DRAFT", "REJECTED", "CANCELLED"] },
+        },
+        select: {
+          indentId: true,
+          items: { select: { materialId: true } },
+        },
+      }),
+    ]);
+
+    const rfqByIndent = new Map<string, Set<string>>();
+    const quoteByIndent = new Map<string, Set<string>>();
+    for (const r of rfqRows) {
+      const rfqSet = rfqByIndent.get(r.indentId) ?? new Set<string>();
+      for (const it of r.items) rfqSet.add(it.materialId);
+      rfqByIndent.set(r.indentId, rfqSet);
+
+      const quoteSet = quoteByIndent.get(r.indentId) ?? new Set<string>();
+      for (const q of r.quotes) {
+        for (const qi of q.items) quoteSet.add(qi.materialId);
+      }
+      quoteByIndent.set(r.indentId, quoteSet);
+    }
+
+    const poByIndent = new Map<string, Set<string>>();
+    for (const p of poRows) {
+      const set = poByIndent.get(p.indentId) ?? new Set<string>();
+      for (const it of p.items) set.add(it.materialId);
+      poByIndent.set(p.indentId, set);
+    }
+
+    for (const ind of indents) {
+      const matIds = new Set(ind.items.map((it) => it.materialId));
+      const rfqSet = rfqByIndent.get(ind.id);
+      const quoteSet = quoteByIndent.get(ind.id);
+      const poSet = poByIndent.get(ind.id);
+
+      let withActiveRfq = 0;
+      let withQuotes = 0;
+      let withPo = 0;
+      matIds.forEach((m) => {
+        if (rfqSet?.has(m)) withActiveRfq++;
+        if (quoteSet?.has(m)) withQuotes++;
+        if (poSet?.has(m)) withPo++;
+      });
+      materialProgressMap[ind.id] = {
+        totalItems: matIds.size,
+        withActiveRfq,
+        withQuotes,
+        withPo,
+      };
+    }
+  }
+
   const result = indents.map((indent) => ({
     ...indent,
     pendingWith: pendingWithMap[indent.id] ?? null,
     displayStatus: getDisplayStatus(indent.status, isProcurement),
+    materialProgress: materialProgressMap[indent.id] ?? null,
   }));
 
   return success(result);

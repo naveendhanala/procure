@@ -13,12 +13,17 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { formatDate } from "@/lib/utils";
-import { UserPlus } from "lucide-react";
+import { UserPlus, Inbox, AlertTriangle, Clock } from "lucide-react";
 
 export default function ProcurementPage() {
   const { siteRoles } = useCurrentUser();
   const [indents, setIndents] = useState<any[]>([]);
   const [ptmUsers, setPtmUsers] = useState<any[]>([]);
+  const [inbox, setInbox] = useState<{
+    quotesReady: any[];
+    awaitingQuotes: any[];
+    overdue: any[];
+  }>({ quotesReady: [], awaitingQuotes: [], overdue: [] });
   const [assignDialog, setAssignDialog] = useState<any>(null);
   const [selectedPTM, setSelectedPTM] = useState("");
   const [assigning, setAssigning] = useState(false);
@@ -29,6 +34,11 @@ export default function ProcurementPage() {
     fetch("/api/indents")
       .then((r) => r.json())
       .then(setIndents)
+
+    fetch("/api/procurement/inbox")
+      .then((r) => r.json())
+      .then(setInbox)
+      .catch(() => {});
 
     if (isHoP) {
       fetch("/api/users")
@@ -71,6 +81,97 @@ export default function ProcurementPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Procurement" description="Manage procurement pipeline" />
+
+      {inbox.quotesReady.length > 0 && (
+        <Card className="border-green-200 bg-green-50/40">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Inbox className="h-4 w-4 text-green-700" />
+              Quotes received — ready to compare ({inbox.quotesReady.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {inbox.quotesReady.map((rfq: any) => (
+              <Link
+                key={rfq.id}
+                href={`/procurement/rfq/${rfq.id}`}
+                className="flex items-center justify-between rounded-md border bg-white p-3 hover:bg-accent"
+              >
+                <div className="text-sm">
+                  <div className="font-medium">{rfq.rfqNumber}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Indent {rfq.indent.indentNumber} · {rfq.indent.site?.code}
+                  </div>
+                </div>
+                <Badge variant="success">
+                  {rfq.submittedCount} / {rfq.vendorCount} quotes
+                </Badge>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {inbox.overdue.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50/40">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-amber-700" />
+              Overdue RFQs ({inbox.overdue.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {inbox.overdue.map((rfq: any) => (
+              <Link
+                key={rfq.id}
+                href={`/procurement/rfq/${rfq.id}`}
+                className="flex items-center justify-between rounded-md border bg-white p-3 hover:bg-accent"
+              >
+                <div className="text-sm">
+                  <div className="font-medium">{rfq.rfqNumber}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Indent {rfq.indent.indentNumber} · due {formatDate(rfq.dueDate)}
+                  </div>
+                </div>
+                <Badge variant="warning">
+                  {rfq.submittedCount} / {rfq.vendorCount} quotes
+                </Badge>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {inbox.awaitingQuotes.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Awaiting vendor quotes ({inbox.awaitingQuotes.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {inbox.awaitingQuotes.map((rfq: any) => (
+              <Link
+                key={rfq.id}
+                href={`/procurement/rfq/${rfq.id}`}
+                className="flex items-center justify-between rounded-md border p-3 hover:bg-accent"
+              >
+                <div className="text-sm">
+                  <div className="font-medium">{rfq.rfqNumber}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Indent {rfq.indent.indentNumber}
+                    {rfq.dueDate ? ` · due ${formatDate(rfq.dueDate)}` : ""}
+                  </div>
+                </div>
+                <Badge variant="outline">
+                  {rfq.submittedCount} / {rfq.vendorCount} quotes
+                </Badge>
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {isHoP && approvedIndents.length > 0 && (
         <Card>
@@ -134,7 +235,9 @@ export default function ProcurementPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {assignedIndents.map((indent) => (
+                {assignedIndents.map((indent) => {
+                  const mp = indent.materialProgress;
+                  return (
                   <TableRow key={indent.id}>
                     <TableCell>
                       <Link href={`/indents/${indent.id}`} className="font-medium text-primary hover:underline">
@@ -144,21 +247,41 @@ export default function ProcurementPage() {
                     <TableCell><Badge variant="outline">{indent.site.code}</Badge></TableCell>
                     <TableCell>{indent.assignedTo?.name || "-"}</TableCell>
                     <TableCell>{indent._count.items} items</TableCell>
-                    <TableCell><StatusBadge status={indent.status} /></TableCell>
                     <TableCell>
-                      {indent.status === "ASSIGNED" && (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/procurement/rfq/new?indentId=${indent.id}`}>Create RFQ</Link>
-                        </Button>
-                      )}
-                      {indent.status === "QUOTES_RECEIVED" && (
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/procurement/purchase-orders/new?indentId=${indent.id}`}>Create PO</Link>
-                        </Button>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        <StatusBadge status={indent.status} />
+                        {mp && mp.totalItems > 0 && (
+                          <span className="text-[11px] text-muted-foreground">
+                            {mp.withQuotes}/{mp.totalItems} quoted
+                            {mp.withPo > 0 ? ` · ${mp.withPo}/${mp.totalItems} on PO` : ""}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-2">
+                        {(indent.status === "ASSIGNED" ||
+                          indent.status === "RFQ_SENT" ||
+                          indent.status === "QUOTES_RECEIVED") && (
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={`/procurement/rfq/new?indentId=${indent.id}`}>
+                              Create RFQ
+                            </Link>
+                          </Button>
+                        )}
+                        {(indent.status === "QUOTES_RECEIVED" ||
+                          indent.status === "RFQ_SENT") && (
+                          <Button asChild size="sm" variant="outline">
+                            <Link href={`/procurement/purchase-orders/new?indentId=${indent.id}`}>
+                              Create PO
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}

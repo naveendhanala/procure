@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { indentId, vendorIds, dueDate, remarks } = body;
+  const { indentId, vendorIds, dueDate, remarks, itemIds } = body;
 
   if (!indentId) return badRequest("Indent is required");
   if (!vendorIds || vendorIds.length === 0) return badRequest("At least one vendor is required");
@@ -64,6 +64,14 @@ export async function POST(request: Request) {
     return badRequest("Indent must be assigned before creating RFQ");
   }
 
+  const itemsForRfq = Array.isArray(itemIds) && itemIds.length > 0
+    ? indent.items.filter((it) => itemIds.includes(it.id))
+    : indent.items;
+
+  if (itemsForRfq.length === 0) {
+    return badRequest("At least one item is required");
+  }
+
   const rfq = await prisma.$transaction(async (tx) => {
     const rfqNumber = await generateRFQNumber(tx);
 
@@ -76,7 +84,7 @@ export async function POST(request: Request) {
         dueDate: dueDate ? new Date(dueDate) : null,
         remarks,
         items: {
-          create: indent.items.map((item) => ({
+          create: itemsForRfq.map((item) => ({
             materialId: item.materialId,
             quantity: item.quantity,
             unit: item.unit,
